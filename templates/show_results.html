@@ -19,6 +19,7 @@ to stop the form from redirecting -->
     <th>Class</th>
     <th>Bounding Box [x1, y1, x2, y2]</th>
     <th>Confidence</th>
+    <th>Time Taken</th>
   </tr>
 </thead>
   {% for bbox in bbox_list %}
@@ -26,6 +27,7 @@ to stop the form from redirecting -->
       <td>{{ bbox['class_name'] }}</td>
       <td>{{ bbox['bbox'] }}</td>
       <td>{{ bbox['confidence'] }}</td>
+      <td colspan="0">{{ bbox['Time_Taken'] }}</td>
     </tr>
   {% endfor %}
 </table>

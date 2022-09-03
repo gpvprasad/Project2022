@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Form, File, UploadFile
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import List, Optional
+import time
 
 import cv2
 import numpy as np
@@ -13,8 +14,7 @@ import random
 app = FastAPI()
 templates = Jinja2Templates(directory = 'templates')
 
-model_selection_options = ['yolov5s','yolov5m','yolov5l','yolov5x','yolov5n',
-                        'yolov5n6','yolov5s6','yolov5m6','yolov5l6','yolov5x6','yolov5xbdd']
+model_selection_options = ['yolov5l','yolov5xbdd']
 model_dict = {model_name: None for model_name in model_selection_options} #set up model cache
 
 colors = [tuple([random.randint(0, 255) for _ in range(3)]) for _ in range(100)] #for bbox plotting
@@ -67,21 +67,21 @@ def detect_with_server_side_rendering(request: Request,
     If you just want JSON results, just return the results of the 
     results_to_json() function and skip the rest
     '''
-
+    print(model_dict)
     if model_dict[model_name] is None:
-        model_dict[model_name] = torch.hub.load('ultralytics/yolov5', 'custom', path= 'yolov5xbdd.pt' ,force_reload=True)
-
+        model_dict[model_name] = torch.hub.load('ultralytics/yolov5', 'custom', path= f'{model_name}.pt' ,force_reload=True)
+    else:
+        print(model_name)
     img_batch = [cv2.imdecode(np.fromstring(file.file.read(), np.uint8), cv2.IMREAD_COLOR)
                     for file in file_list]
 
     #create a copy that corrects for cv2.imdecode generating BGR images instead of RGB
     #using cvtColor instead of [...,::-1] to keep array contiguous in RAM
     img_batch_rgb = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in img_batch]
-
+    t0 =time.time()
     results = model_dict[model_name](img_batch_rgb, size = img_size)
 
-    json_results = results_to_json(results,model_dict[model_name])
-
+    json_results = results_to_json(results,model_dict[model_name],str(time.time()-t0))
     img_str_list = []
     #plot bboxes on the image
     for img, bbox_list in zip(img_batch, json_results):
@@ -130,7 +130,7 @@ def detect_via_api(request: Request,
     #create a copy that corrects for cv2.imdecode generating BGR images instead of RGB, 
     #using cvtColor instead of [...,::-1] to keep array contiguous in RAM
     img_batch_rgb = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in img_batch]
-    
+
     results = model_dict[model_name](img_batch_rgb, size = img_size) 
     json_results = results_to_json(results,model_dict[model_name])
 
@@ -152,7 +152,7 @@ def detect_via_api(request: Request,
 #--------------Helper Functions---------------
 ##############################################
 
-def results_to_json(results, model):
+def results_to_json(results, model,timetaken = "0"):
     ''' Converts yolo model output to json (list of list of dicts)'''
     return [
                 [
@@ -161,8 +161,9 @@ def results_to_json(results, model):
                     "class_name": model.model.names[int(pred[5])],
                     "bbox": [int(x) for x in pred[:4].tolist()], #convert bbox results to int from float
                     "confidence": float(pred[4]),
+                    "Time_Taken": timetaken,
                     }
-                for pred in result
+                for pred in result if float(pred[4])>.5
                 ]
             for result in results.xyxy
             ]
@@ -201,8 +202,9 @@ if __name__ == '__main__':
     opt = parser.parse_args()
 
     if opt.precache_models:
-        model_dict = {model_name: torch.hub.load('ultralytics/yolov5', 'custom', path= 'yolov5xbdd.pt' ,force_reload=True) 
+        model_dict = {model_name: torch.hub.load('ultralytics/yolov5', 'custom', path= f'{model_name}.pt' ,force_reload=True) 
                         for model_name in model_selection_options}
     
+    print(model_dict)
     app_str = 'server:app' #make the app string equal to whatever the name of this file is
     uvicorn.run(app_str, host= opt.host, port=opt.port, reload=True)
