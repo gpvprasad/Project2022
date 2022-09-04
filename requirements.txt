@@ -5,8 +5,8 @@ h11==0.13.0
 idna==3.3
 Jinja2==3.1.2
 MarkupSafe==2.1.1
-numpy==1.23.2
-opencv-python==4.6.0.66
+numpy
+opencv-python
 pydantic==1.9.2
 python-multipart==0.0.5
 six==1.16.0
@@ -15,4 +15,4 @@ starlette==0.19.1
 torch==1.12.1
 typing==3.7.4.3
 typing_extensions==4.3.0
-uvicorn==0.18.3
+uvicorn
